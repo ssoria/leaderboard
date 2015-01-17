@@ -830,15 +830,18 @@ class Leaderboard
   #
   # @return a page of leaders from the named leaderboard.
   def member_at_in(leaderboard_name, position, options = {})
-    if position <= total_members_in(leaderboard_name)
-      leaderboard_options = DEFAULT_LEADERBOARD_REQUEST_OPTIONS.dup
-      leaderboard_options.merge!(options)
-      page_size = validate_page_size(leaderboard_options[:page_size]) || @page_size
-      current_page = (position.to_f / page_size.to_f).ceil
-      offset = (position - 1) % page_size
+    if @reverse
+      raw_leader_data = @redis_connection.zrange(leaderboard_name, position-1, position-1, :with_scores => true)
+    else
+      raw_leader_data = @redis_connection.zrevrange(leaderboard_name, position-1, position-1, :with_scores => true)
+    end
 
-      leaders = leaders_in(leaderboard_name, current_page, options)
-      leaders[offset] if leaders
+    if raw_leader_data[0]
+      data = {}
+      data[@rank_key] = position
+      data[@member_key] = raw_leader_data[0][0]
+      data[@score_key] = raw_leader_data[0][1]
+      data
     end
   end
 
